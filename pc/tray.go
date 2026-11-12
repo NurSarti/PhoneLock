@@ -19,7 +19,8 @@ var unlockedPNG []byte
 const (
 	cmdLockNow = 1
 	cmdQuit    = 2
-	timerHooks = 1
+	timerHooks   = 1
+	timerReblock = 2
 )
 
 var (
@@ -113,10 +114,21 @@ func wndProc(hwnd, m, wParam, lParam uintptr) uintptr {
 	case m == wmAppState:
 		if locked.Load() {
 			releaseHeld()
+			// Hooks stop normal input; BlockInput also stops raw input (what games read for camera look).
+			procBlockInput.Call(1)
+			procSetTimer.Call(mainHwnd, timerReblock, 1000, 0)
 		} else {
+			procKillTimer.Call(mainHwnd, timerReblock)
+			procBlockInput.Call(0)
 			clearHeld()
 		}
 		updateTray()
+		return 0
+	case m == wmTimer && wParam == timerReblock:
+		// Windows lifts BlockInput after Ctrl+Alt+Del; put it back while still locked.
+		if locked.Load() {
+			procBlockInput.Call(1)
+		}
 		return 0
 	case m == wmTimer && wParam == timerHooks:
 		// Windows can silently drop a slow low-level hook; re-installing regularly keeps the lock reliable.
@@ -164,5 +176,6 @@ func runUI() {
 		procTranslateMessage.Call(uintptr(unsafe.Pointer(&m)))
 		procDispatchMessageW.Call(uintptr(unsafe.Pointer(&m)))
 	}
+	procBlockInput.Call(0)
 	removeHooks()
 }

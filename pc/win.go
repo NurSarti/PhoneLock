@@ -35,6 +35,8 @@ var (
 	procMessageBoxW           = user32.NewProc("MessageBoxW")
 	procRegisterWindowMessage = user32.NewProc("RegisterWindowMessageW")
 	procSetTimer              = user32.NewProc("SetTimer")
+	procKillTimer             = user32.NewProc("KillTimer")
+	procBlockInput            = user32.NewProc("BlockInput")
 
 	procGetModuleHandleW = kernel32.NewProc("GetModuleHandleW")
 	procCreateMutexW     = kernel32.NewProc("CreateMutexW")
