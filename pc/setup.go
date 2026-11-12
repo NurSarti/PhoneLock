@@ -37,11 +37,14 @@ func xmlEscape(s string) string {
 	return b.String()
 }
 
-// taskPointsTo reports whether the scheduled task exists and launches this exact exe.
-func taskPointsTo(exe string) bool {
+// taskState: 1 = task launches this exact exe, 0 = missing or points elsewhere, -1 = couldn't check.
+func taskState(exe string) int {
+	if hiddenCmd("schtasks", "/query", "/tn", taskName).Run() != nil {
+		return 0
+	}
 	out, err := hiddenCmd("schtasks", "/query", "/tn", taskName, "/xml").Output()
 	if err != nil {
-		return false
+		return -1
 	}
 	text := string(out)
 	if len(out) >= 2 && out[0] == 0xFF && out[1] == 0xFE { // UTF-16 output
@@ -50,8 +53,13 @@ func taskPointsTo(exe string) bool {
 		text = string(utf16.Decode(u))
 	}
 	text = strings.ToLower(text)
-	return strings.Contains(text, strings.ToLower(exe)) || strings.Contains(text, strings.ToLower(xmlEscape(exe)))
+	if strings.Contains(text, strings.ToLower(exe)) || strings.Contains(text, strings.ToLower(xmlEscape(exe))) {
+		return 1
+	}
+	return 0
 }
+
+func taskPointsTo(exe string) bool { return taskState(exe) == 1 }
 
 // ensureSetup runs while elevated: registers the no-prompt task and the firewall rule.
 func ensureSetup(exe string) error {
@@ -67,7 +75,6 @@ func ensureSetup(exe string) error {
   <RegistrationInfo>
     <Description>Lets PhoneLock open with admin rights without a UAC prompt. It only runs when you open PhoneLock yourself.</Description>
   </RegistrationInfo>
-  <Triggers />
   <Principals>
     <Principal id="Author">
       <UserId>` + xmlEscape(u.Username) + `</UserId>
@@ -122,7 +129,7 @@ func (e *setupErr) Error() string { return e.s }
 // launchElevated is called when PhoneLock was opened without admin rights.
 // Returns after handing off to an elevated copy (or failing).
 func launchElevated(exe string) {
-	if taskPointsTo(exe) {
+	if taskState(exe) != 0 {
 		if hiddenCmd("schtasks", "/run", "/tn", taskName).Run() == nil {
 			return
 		}
