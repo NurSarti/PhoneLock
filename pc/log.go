@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const appVersion = "1.3"
+const appVersion = "1.4"
 
 var (
 	logMu   sync.Mutex

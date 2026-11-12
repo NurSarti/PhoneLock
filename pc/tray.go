@@ -136,9 +136,11 @@ func wndProc(hwnd, m, wParam, lParam uintptr) uintptr {
 		if locked.Load() {
 			r, _, e := procBlockInput.Call(1)
 			// r==0 is normal when input is still blocked; only log changes.
-			if ok := r != 0; ok != lastBlockOK {
-				logf("re-block BlockInput=%d err=%v", r, e)
+			// Returns 0 while input is still blocked (normal); 1 means it had been lifted and is now back.
+			if r != 0 {
+				logf("re-blocked input after it was lifted (e.g. Ctrl+Alt+Del)")
 			}
+			_ = e
 		}
 		return 0
 	case m == wmTimer && wParam == timerHooks:
