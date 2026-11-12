@@ -31,7 +31,9 @@ func main() {
 		exe = p
 	}
 
+	initLog(exe)
 	if !isAdmin() {
+		logf("opened without admin, handing off (v%s)", appVersion)
 		launchElevated(exe)
 		return
 	}

@@ -10,7 +10,9 @@ import (
 )
 
 var (
-	locked atomic.Bool
+	locked          atomic.Bool
+	swallowedClicks atomic.Int64
+	swallowedKeys   atomic.Int64
 
 	kbHook, mouseHook uintptr
 	kbCallback        = syscall.NewCallback(keyboardProc)
@@ -80,6 +82,7 @@ func keyboardProc(nCode, wParam, lParam uintptr) uintptr {
 			goto pass
 		}
 		if locked.Load() {
+			swallowedKeys.Add(1)
 			return 1
 		}
 		vk := k.VkCode & 0xFF
@@ -110,6 +113,9 @@ func mouseProc(nCode, wParam, lParam uintptr) uintptr {
 			goto pass
 		}
 		if locked.Load() {
+			if wParam != 0x0200 { // anything but plain mouse movement
+				swallowedClicks.Add(1)
+			}
 			return 1
 		}
 		switch wParam {

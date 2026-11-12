@@ -29,6 +29,7 @@ var (
 	iconUnlocked   uintptr
 	taskbarCreated uintptr
 	trayAdded      bool
+	lastBlockOK    bool
 )
 
 func iconFromPNG(data []byte) uintptr {
@@ -83,6 +84,7 @@ func showMenu() {
 	add(mfString|mfGrayed, 0, "PhoneLock: "+statusText())
 	add(mfString|mfGrayed, 0, "PC address: "+localIP())
 	add(mfString|mfGrayed, 0, "Lock key: Alt + Shift + Win")
+	add(mfString|mfGrayed, 0, "Version "+appVersion)
 	add(mfSeparator, 0, "")
 	add(mfString, cmdLockNow, "Lock now")
 	add(mfString, cmdQuit, "Quit PhoneLock")
@@ -114,12 +116,17 @@ func wndProc(hwnd, m, wParam, lParam uintptr) uintptr {
 	case m == wmAppState:
 		if locked.Load() {
 			releaseHeld()
+			swallowedClicks.Store(0)
+			swallowedKeys.Store(0)
 			// Hooks stop normal input; BlockInput also stops raw input (what games read for camera look).
-			procBlockInput.Call(1)
+			r, _, e := procBlockInput.Call(1)
+			lastBlockOK = r != 0
+			logf("LOCKED  hooks kb=%#x mouse=%#x  BlockInput=%d err=%v", kbHook, mouseHook, r, e)
 			procSetTimer.Call(mainHwnd, timerReblock, 1000, 0)
 		} else {
 			procKillTimer.Call(mainHwnd, timerReblock)
-			procBlockInput.Call(0)
+			r, _, e := procBlockInput.Call(0)
+			logf("UNLOCKED  BlockInput(off)=%d err=%v  swallowed while locked: %d clicks, %d keys", r, e, swallowedClicks.Load(), swallowedKeys.Load())
 			clearHeld()
 		}
 		updateTray()
@@ -127,7 +134,11 @@ func wndProc(hwnd, m, wParam, lParam uintptr) uintptr {
 	case m == wmTimer && wParam == timerReblock:
 		// Windows lifts BlockInput after Ctrl+Alt+Del; put it back while still locked.
 		if locked.Load() {
-			procBlockInput.Call(1)
+			r, _, e := procBlockInput.Call(1)
+			// r==0 is normal when input is still blocked; only log changes.
+			if ok := r != 0; ok != lastBlockOK {
+				logf("re-block BlockInput=%d err=%v", r, e)
+			}
 		}
 		return 0
 	case m == wmTimer && wParam == timerHooks:
@@ -165,6 +176,7 @@ func runUI() {
 	iconUnlocked = iconFromPNG(unlockedPNG)
 	addTray()
 	installHooks()
+	logf("started v%s  admin=%v  hooks kb=%#x mouse=%#x  ip=%s", appVersion, isAdmin(), kbHook, mouseHook, localIP())
 	procSetTimer.Call(mainHwnd, timerHooks, 15000, 0)
 
 	var m msg
