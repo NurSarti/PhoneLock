@@ -17,8 +17,8 @@ var lockedPNG []byte
 var unlockedPNG []byte
 
 const (
-	cmdLockNow = 1
-	cmdQuit    = 2
+	cmdLockNow   = 1
+	cmdQuit      = 2
 	timerHooks   = 1
 	timerReblock = 2
 )
