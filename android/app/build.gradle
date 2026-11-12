@@ -1,0 +1,51 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Same pairing key the PC app is built with.
+def pairingKey = rootProject.file('../shared/key.txt').text.trim()
+def buildNumber = Integer.parseInt(System.getenv('VERSION_CODE') ?: '1')
+
+android {
+    namespace 'com.nursarti.phonelock'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.nursarti.phonelock'
+        minSdk 26
+        targetSdk 34
+        versionCode buildNumber
+        versionName "1.0.${buildNumber}"
+        buildConfigField 'String', 'PAIRING_KEY', "\"${pairingKey}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        release {
+            storeFile file('phonelock.jks')
+            storePassword 'phonelock'
+            keyAlias 'phonelock'
+            keyPassword 'phonelock'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
